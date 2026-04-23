@@ -136,11 +136,6 @@
                 <i class="fas fa-network-wired w-6"></i><span class="ml-3">System Connection</span>
             </button>
         </nav>
-        <div class="p-4 border-t border-slate-800">
-            <button onclick="logout()" class="w-full py-2 bg-red-500/10 hover:bg-red-500/20 text-red-500 rounded-xl text-[10px] font-black transition uppercase">
-                <i class="fas fa-sign-out-alt mr-2"></i>Logout
-            </button>
-        </div>
     </aside>
 
     <main class="flex-1 flex flex-col overflow-y-auto relative">
@@ -183,39 +178,45 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-        import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
 
-        // CONFIG AUTH (Sistem Login Lo)
+        // Config khusus untuk sistem login (Ambil dari project loginsistemdashboard)
         const authConfig = {
-            apiKey: "AIzaSyC7Kowl_t-GyiJCNZI5xVclGgIEvp6i5zo",
+            apiKey: "AIzaSyCDri3OmQNtdmZNb2fR9cu4KhFEA4kn29M",
             authDomain: "loginsistemdashboard.firebaseapp.com",
-            projectId: "loginsistemdashboard",
         };
+
         const authApp = initializeApp(authConfig, "auth-app");
         const auth = getAuth(authApp);
 
-        // CONFIG DATABASE (Sistem Dashboard Utama Lo)
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                console.log("Verified User:", user.displayName);
+                // Ganti judul header dengan nama user
+                const header = document.getElementById('header-title');
+                if (header) header.innerText = `EDITOR - ${user.displayName.toUpperCase()}`;
+            } else {
+                // Jika tidak login dalam 2 detik, tendang ke index
+                setTimeout(() => {
+                    if (!auth.currentUser) {
+                        window.location.href = "index.html"; 
+                    }
+                }, 2000);
+            }
+        });
+    </script>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+        import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
         const firebaseConfig = {
             apiKey: "AIzaSyCDri3OmQNtdmZNb2fR9cu4KhFEA4kn29M",
             databaseURL: "https://dashboardiot-7fd60-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
+
         const app = initializeApp(firebaseConfig);
         const db = getDatabase(app);
-
-        // --- SATPAM FIREBASE AUTH ---
-        onAuthStateChanged(auth, (user) => {
-            if (!user) {
-                window.location.href = "index.html"; 
-            } else {
-                console.log("Verified User:", user.displayName);
-                document.getElementById('header-title').innerText = `EDITOR - ${user.displayName.toUpperCase()}`;
-            }
-        });
-
-        window.logout = () => {
-            signOut(auth).then(() => { window.location.href = "index.html"; });
-        };
 
         window.projects = [];
         window.activeProjectId = null;
@@ -265,6 +266,7 @@
             const proj = window.projects.find(p => p.id == window.activeProjectId);
             const id = editId || Date.now();
             
+            // Simpan posisi default jika widget baru
             const existingWidget = (editId && proj.widgets) ? proj.widgets[editId] : null;
             const pos = existingWidget?.pos || { x: 20, y: 20, w: 250, h: 220 };
 
@@ -286,20 +288,26 @@
             }
         };
 
+        // DRAG & RESIZE LOGIC
         let activeEl = null, startX, startY, startW, startH, startLeft, startTop, mode = '';
 
         function initInteractions(el, widgetId) {
             const handle = el.querySelector('.resize-handle');
+            
             el.onmousedown = (e) => {
                 if (e.target.closest('button') || e.target.closest('input')) return;
-                mode = 'drag'; activeEl = el;
+                mode = 'drag';
+                activeEl = el;
                 startX = e.clientX; startY = e.clientY;
                 startLeft = el.offsetLeft; startTop = el.offsetTop;
                 document.onmousemove = doInteraction;
                 document.onmouseup = stopInteraction;
             };
+
             handle.onmousedown = (e) => {
-                e.stopPropagation(); mode = 'resize'; activeEl = el;
+                e.stopPropagation();
+                mode = 'resize';
+                activeEl = el;
                 startX = e.clientX; startY = e.clientY;
                 startW = el.offsetWidth; startH = el.offsetHeight;
                 document.onmousemove = doInteraction;
@@ -328,7 +336,8 @@
                     h: activeEl.offsetHeight
                 });
             }
-            activeEl = null; document.onmousemove = null;
+            activeEl = null;
+            document.onmousemove = null;
         }
 
         window.renderAll = () => {
@@ -336,10 +345,14 @@
             const monitorGrid = document.getElementById('section-monitor');
             const tableBody = document.getElementById('recap-table-body');
             editorGrid.innerHTML = ''; monitorGrid.innerHTML = ''; tableBody.innerHTML = '';
+
             const currentProj = window.projects.find(p => p.id == window.activeProjectId);
             if(!currentProj || !currentProj.widgets) return;
+
             Object.values(currentProj.widgets).forEach(w => {
                 const fullPath = `/data/${currentProj.slug}/${w.slug}`;
+                
+                // Render Editor
                 editorGrid.innerHTML += `
                     <div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-4 shadow-lg group">
                         <div class="flex justify-between items-start">
@@ -354,6 +367,8 @@
                              <button onclick="copyToClipboard('${fullPath}')" class="text-slate-600 hover:text-white"><i class="far fa-copy text-xs"></i></button>
                         </div>
                     </div>`;
+
+                // Render Monitor (Absolute Positioned)
                 const card = document.createElement('div');
                 card.id = `monitor-${w.id}`;
                 card.className = 'widget-monitor-card bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-2xl flex flex-col';
@@ -363,11 +378,14 @@
                 card.style.height = (w.pos?.h || 220) + 'px';
                 card.innerHTML = `<div class="content flex-1"></div><div class="resize-handle"></div>`;
                 monitorGrid.appendChild(card);
+                
                 initInteractions(card, w.id);
+
                 onValue(ref(db, fullPath), (snapshot) => {
                     const val = snapshot.val() || 0;
                     card.querySelector('.content').innerHTML = createMonitorUI(w, val);
                 });
+
                 tableBody.innerHTML += `<tr class="border-t border-slate-800/50"><td class="px-6 py-4 font-bold">${w.name}</td><td class="px-6 py-4"><code class="text-emerald-400">${fullPath}</code></td></tr>`;
             });
         };
@@ -376,6 +394,7 @@
             const accent = w.colorAccent || '#6366f1';
             const textCol = w.colorText || '#ffffff';
             let inner = '';
+
             if(w.type === 'switch') {
                 inner = `<div onclick="toggleSwitch('${w.slug}', ${val})" class="mt-4 flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 cursor-pointer">
                             <span class="text-[10px] font-bold" style="color:${accent}">${val == 1 ? 'ON' : 'OFF'}</span>
@@ -408,13 +427,16 @@
                     class="w-full mt-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest select-none transition-all active:scale-95" 
                     style="background:${accent}22; color:${accent}; border: 1px solid ${accent}44">Trigger</button>`;
             }
+
             return `<div class="text-[9px] text-slate-500 uppercase font-black mb-1">${w.type}</div>
                     <div class="text-xs font-bold text-slate-200 truncate">${w.name}</div>
                     ${inner}`;
         }
 
+        // Global functions
         window.renderProjects = () => {
-            const container = document.getElementById('project-list'); container.innerHTML = '';
+            const container = document.getElementById('project-list');
+            container.innerHTML = '';
             window.projects.forEach(p => {
                 const isActive = window.activeProjectId == p.id;
                 container.innerHTML += `<div onclick="selectProject(${p.id})" class="group flex items-center justify-between p-3 rounded-xl border border-slate-800 cursor-pointer ${isActive ? 'bg-indigo-600/20 border-indigo-500' : 'hover:bg-slate-900'}">
@@ -439,7 +461,8 @@
                 document.getElementById('edit-widget-id').value = '';
                 document.getElementById('item-name').value = '';
             }
-            toggleMinMax(); document.getElementById('modal-item').classList.remove('hidden');
+            toggleMinMax();
+            document.getElementById('modal-item').classList.remove('hidden');
         };
         window.closeModal = () => document.getElementById('modal-item').classList.add('hidden');
         window.toggleMinMax = () => {
@@ -462,7 +485,8 @@
             set(ref(db, `data/${p.slug}/${slug}`), v);
         };
         window.copyToClipboard = (text) => {
-            navigator.clipboard.writeText(text); alert("Path Copied!");
+            navigator.clipboard.writeText(text);
+            alert("Path Copied!");
         };
     </script>
 </body>
