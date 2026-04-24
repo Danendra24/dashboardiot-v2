@@ -151,7 +151,7 @@
                 <div id="section-monitor" class="hidden"></div>
                 <div id="section-connection" class="hidden max-w-3xl mx-auto space-y-8">
                     <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                        <div class="bg-indigo-600 p-6 flex justify-between items-center"><h3 class="text-lg font-bold text-white italic">ESP32 Credentials</h3><button id="btn-unlock-config" onclick="unlockConfig()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-bold transition"><i class="fas fa-lock mr-2"></i>UNLOCK EDIT</button></div>
+                        <div class="bg-indigo-600 p-6 flex justify-between items-center"><h3 class="text-lg font-bold text-white italic">ESP32 Credentials</h3><button class="bg-white/10 text-white/40 px-4 py-2 rounded-lg text-[10px] font-bold cursor-not-allowed"><i class="fas fa-lock mr-2"></i>LOCKED</button></div>
                         <div class="p-8 space-y-6">
                             <input id="db-url-input" type="text" readonly class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
                             <input id="db-key-input" type="text" readonly class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
@@ -198,7 +198,6 @@
             document.getElementById('tab-login').className = mode === 'login' ? 'flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition';
             document.getElementById('tab-signup').className = mode === 'signup' ? 'flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition';
             document.getElementById('auth-btn-text').innerText = mode === 'login' ? 'Log In' : 'Sign Up';
-            // Sembunyikan tombol forgot password jika sedang di mode sign up
             document.getElementById('btn-forgot-password').style.display = mode === 'login' ? 'inline-block' : 'none';
         };
 
@@ -206,9 +205,7 @@
             const email = document.getElementById('auth-email').value;
             const password = document.getElementById('auth-password').value;
             const loader = document.getElementById('auth-loader');
-
             if(!email || !password) return alert("Please fill all fields!");
-            
             loader.classList.remove('hidden');
             try {
                 if(authMode === 'signup') {
@@ -218,28 +215,21 @@
                 }
             } catch (e) {
                 let msg = "Error: " + e.message;
-                if(e.code === "auth/email-already-in-use") msg = "Email sudah terdaftar! Gunakan email lain.";
-                if(e.code === "auth/invalid-credential") msg = "Gmail tidak terdaftar atau Password salah!";
+                if(e.code === "auth/email-already-in-use") msg = "Email sudah terdaftar!";
+                if(e.code === "auth/invalid-credential") msg = "Gmail/Password salah!";
                 alert(msg);
             }
             loader.classList.add('hidden');
         };
 
-        // FUNGSI RESET PASSWORD (NEW)
         window.handleForgotPassword = async () => {
             const email = document.getElementById('auth-email').value;
-            if(!email) return alert("Masukkan alamat Gmail kamu di kotak input terlebih dahulu!");
-
-            if(confirm(`Kirim link reset kata sandi ke ${email}?`)) {
-                const loader = document.getElementById('auth-loader');
-                loader.classList.remove('hidden');
+            if(!email) return alert("Masukkan Gmail kamu!");
+            if(confirm(`Kirim link reset ke ${email}?`)) {
                 try {
                     await sendPasswordResetEmail(auth, email);
-                    alert("Sukses! Silahkan cek folder Inbox atau Spam di Gmail kamu.");
-                } catch (e) {
-                    alert("Gagal: " + e.message);
-                }
-                loader.classList.add('hidden');
+                    alert("Cek Inbox Gmail kamu.");
+                } catch (e) { alert("Gagal: " + e.message); }
             }
         };
 
@@ -248,8 +238,12 @@
                 window.userId = user.uid;
                 authGate.style.display = "none";
                 mainDashboard.style.display = "flex";
-                document.getElementById('db-url-input').value = firebaseConfig.databaseURL;
-                document.getElementById('db-key-input').value = firebaseConfig.apiKey;
+
+                // --- MODIFIKASI DISINI: UBAH MANUAL VALUE LINK ---
+                // Silahkan ganti isi string di bawah ini sesuai kebutuhan Github Anda secara manual.
+                document.getElementById('db-url-input').value = "https://loginsistemdashboard-default-rtdb.asia-southeast1.firebasedatabase.app"; 
+                document.getElementById('db-key-input').value = "h8hKp0F3VKUjnOmfXP22XH1SrTfc335FUnN27rAe";
+                
                 initApp();
             } else {
                 window.userId = null;
@@ -297,17 +291,14 @@
             const colorAccent = document.getElementById('item-color-accent').value;
             const colorText = document.getElementById('item-color-text').value;
             const editId = document.getElementById('edit-widget-id').value;
-            
             if(!name || !window.activeProjectId) return;
             const proj = window.projects.find(p => p.id == window.activeProjectId);
             const id = editId || Date.now();
             const existingWidget = (editId && proj.widgets) ? proj.widgets[editId] : null;
             const pos = existingWidget?.pos || { x: 20, y: 20, w: 250, h: 220 };
-
             const widgetData = { id, name, type, min, max, colorAccent, colorText, pos,
                 slug: existingWidget ? existingWidget.slug : name.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Math.floor(1000 + Math.random()*9000)
             };
-
             set(ref(db, `users/${window.userId}/system_projects/${window.activeProjectId}/widgets/${id}`), widgetData);
             if(!editId) set(ref(db, `users/${window.userId}/data/${proj.slug}/${widgetData.slug}`), 0);
             closeModal();
@@ -321,35 +312,33 @@
             }
         };
 
-        let activeEl = null, startX, startY, startW, startH, startLeft, startTop, mode = '';
-
+        // UI Interactions
+        let activeEl = null, startX, startY, startW, startH, startLeft, startTop, interactionMode = '';
         function initInteractions(el, widgetId) {
             const handle = el.querySelector('.resize-handle');
             el.onmousedown = (e) => {
                 if (e.target.closest('button') || e.target.closest('input')) return;
-                mode = 'drag'; activeEl = el; startX = e.clientX; startY = e.clientY;
+                interactionMode = 'drag'; activeEl = el; startX = e.clientX; startY = e.clientY;
                 startLeft = el.offsetLeft; startTop = el.offsetTop;
                 document.onmousemove = doInteraction; document.onmouseup = stopInteraction;
             };
             handle.onmousedown = (e) => {
-                e.stopPropagation(); mode = 'resize'; activeEl = el;
+                e.stopPropagation(); interactionMode = 'resize'; activeEl = el;
                 startX = e.clientX; startY = e.clientY;
                 startW = el.offsetWidth; startH = el.offsetHeight;
                 document.onmousemove = doInteraction; document.onmouseup = stopInteraction;
             };
         }
-
         function doInteraction(e) {
             if (!activeEl) return;
-            if (mode === 'drag') {
+            if (interactionMode === 'drag') {
                 activeEl.style.left = (startLeft + e.clientX - startX) + 'px';
                 activeEl.style.top = (startTop + e.clientY - startY) + 'px';
-            } else if (mode === 'resize') {
+            } else if (interactionMode === 'resize') {
                 activeEl.style.width = (startW + e.clientX - startX) + 'px';
                 activeEl.style.height = (startH + e.clientY - startY) + 'px';
             }
         }
-
         function stopInteraction() {
             if (activeEl) {
                 const id = activeEl.id.split('-')[1];
@@ -366,16 +355,13 @@
             const monitorGrid = document.getElementById('section-monitor');
             const tableBody = document.getElementById('recap-table-body');
             editorGrid.innerHTML = ''; monitorGrid.innerHTML = ''; tableBody.innerHTML = '';
-
             const currentProj = window.projects.find(p => p.id == window.activeProjectId);
             if(!currentProj || !currentProj.widgets) return;
-
             Object.values(currentProj.widgets).forEach(w => {
                 const fullPath = `users/${window.userId}/data/${currentProj.slug}/${w.slug}`;
-                editorGrid.innerHTML += `<div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-4 shadow-lg group"><div class="flex justify-between items-start"><div><div class="text-[9px] text-indigo-400 font-bold uppercase mb-1">${w.type}</div><div class="font-bold text-white">${w.name}</div></div><div class="flex space-x-2"><button onclick="openModal(${w.id})" class="text-slate-700 hover:text-emerald-400"><i class="fas fa-edit"></i></button><button onclick="deleteWidget(${w.id})" class="text-slate-700 hover:text-red-500"><i class="fas fa-trash-alt"></i></button></div></div><div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex justify-between items-center overflow-hidden"><code class="text-[10px] text-emerald-500 truncate mr-2">${fullPath}</code><button onclick="copyToClipboard('${fullPath}')" class="text-slate-600 hover:text-white"><i class="far fa-copy text-xs"></i></button></div></div>`;
+                editorGrid.innerHTML += `<div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl shadow-lg group"><div class="flex justify-between items-start"><div><div class="text-[9px] text-indigo-400 font-bold uppercase mb-1">${w.type}</div><div class="font-bold text-white">${w.name}</div></div><div class="flex space-x-2"><button onclick="openModal(${w.id})" class="text-slate-700 hover:text-emerald-400"><i class="fas fa-edit"></i></button><button onclick="deleteWidget(${w.id})" class="text-slate-700 hover:text-red-500"><i class="fas fa-trash-alt"></i></button></div></div><div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex justify-between items-center mt-4"><code class="text-[10px] text-emerald-500 truncate mr-2">${fullPath}</code></div></div>`;
                 const card = document.createElement('div');
-                card.id = `monitor-${w.id}`;
-                card.className = 'widget-monitor-card bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-2xl flex flex-col';
+                card.id = `monitor-${w.id}`; card.className = 'widget-monitor-card bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-2xl flex flex-col';
                 card.style.left = (w.pos?.x || 0) + 'px'; card.style.top = (w.pos?.y || 0) + 'px';
                 card.style.width = (w.pos?.w || 250) + 'px'; card.style.height = (w.pos?.h || 220) + 'px';
                 card.innerHTML = `<div class="content flex-1"></div><div class="resize-handle"></div>`;
@@ -397,16 +383,25 @@
                 inner = `<div onclick="toggleSwitch('${w.slug}', ${val})" class="mt-4 flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 cursor-pointer"><span class="text-[10px] font-bold" style="color:${accent}">${val == 1 ? 'ON' : 'OFF'}</span><div class="w-10 h-5 rounded-full relative p-1" style="background-color:${val == 1 ? accent : '#334155'}"><div class="w-3 h-3 bg-white rounded-full transition-all transform ${val == 1 ? 'translate-x-5' : ''}"></div></div></div>`;
             } else if (w.type === 'numeric_gauge') {
                 const percent = Math.min(Math.max(((val - w.min) / (w.max - w.min)) * 100, 0), 100);
-                inner = `<div class="mt-2 flex flex-col items-center justify-center relative h-full"><svg viewBox="0 0 100 100" class="w-full h-full max-h-[120px]"><circle cx="50" cy="50" r="40" stroke="#1e293b" stroke-width="8" fill="transparent" /><circle cx="50" cy="50" r="40" stroke="${accent}" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * percent) / 100}" class="gauge-circle" stroke-linecap="round" /></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-black" style="color:${textCol}">${val}</span><span class="text-[8px] font-bold opacity-50 uppercase">${percent.toFixed(0)}%</span></div></div>`;
+                inner = `<div class="mt-2 flex flex-col items-center justify-center relative h-full"><svg viewBox="0 0 100 100" class="w-full h-full max-h-[120px]"><circle cx="50" cy="50" r="40" stroke="#1e293b" stroke-width="8" fill="transparent" /><circle cx="50" cy="50" r="40" stroke="${accent}" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * percent) / 100}" class="gauge-circle" stroke-linecap="round" /></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-black" style="color:${textCol}">${val}</span></div></div>`;
             } else if (w.type === 'numeric_simple') {
                 inner = `<div class="h-full flex items-center justify-center"><span class="text-4xl font-black" style="color:${textCol}">${val}</span></div>`;
             } else if (w.type === 'status') {
                 inner = `<div class="mt-4 flex items-center space-x-3 bg-slate-950/50 p-3 rounded-xl border border-slate-800"><div class="w-2.5 h-2.5 rounded-full ${val == 1 ? 'animate-pulse' : ''}" style="background-color:${val == 1 ? accent : '#334155'}"></div><span class="text-[10px] uppercase font-bold" style="color:${val == 1 ? textCol : '#64748b'}">${val == 1 ? 'Active' : 'Inactive'}</span></div>`;
             } else if (w.type === 'button') {
-                inner = `<button onmousedown="pushButton('${w.slug}', 1)" onmouseup="pushButton('${w.slug}', 0)" onmouseleave="pushButton('${w.slug}', 0)" class="w-full mt-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest select-none transition-all active:scale-95" style="background:${accent}22; color:${accent}; border: 1px solid ${accent}44">Trigger</button>`;
+                inner = `<button onmousedown="pushButton('${w.slug}', 1)" onmouseup="pushButton('${w.slug}', 0)" class="w-full mt-4 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest select-none transition-all active:scale-95" style="background:${accent}22; color:${accent}; border: 1px solid ${accent}44">Trigger</button>`;
             }
             return `<div class="text-[9px] text-slate-500 uppercase font-black mb-1 text-center">${w.type}</div><div class="text-xs font-bold text-slate-200 truncate text-center">${w.name}</div>${inner}`;
         }
+
+        window.toggleSwitch = (slug, cur) => {
+            const proj = window.projects.find(p => p.id == window.activeProjectId);
+            set(ref(db, `users/${window.userId}/data/${proj.slug}/${slug}`), cur == 1 ? 0 : 1);
+        };
+        window.pushButton = (slug, val) => {
+            const proj = window.projects.find(p => p.id == window.activeProjectId);
+            set(ref(db, `users/${window.userId}/data/${proj.slug}/${slug}`), val);
+        };
 
         window.renderProjects = () => {
             const container = document.getElementById('project-list'); container.innerHTML = '';
@@ -439,21 +434,6 @@
             document.querySelectorAll('.sidebar-item').forEach(b => b.classList.remove('active'));
             document.getElementById(`btn-${tab}`).classList.add('active');
             document.getElementById('header-title').innerText = tab.toUpperCase();
-        };
-        window.toggleSwitch = (slug, cur) => {
-            const p = window.projects.find(proj => proj.id == window.activeProjectId);
-            set(ref(db, `users/${window.userId}/data/${p.slug}/${slug}`), cur == 1 ? 0 : 1);
-        };
-        window.pushButton = (slug, v) => {
-            const p = window.projects.find(proj => proj.id == window.activeProjectId);
-            set(ref(db, `users/${window.userId}/data/${p.slug}/${slug}`), v);
-        };
-        window.copyToClipboard = (text) => { navigator.clipboard.writeText(text); alert("Path Copied!"); };
-        window.unlockConfig = () => {
-            document.getElementById('db-url-input').classList.remove('input-locked');
-            document.getElementById('db-key-input').classList.remove('input-locked');
-            document.getElementById('db-url-input').removeAttribute('readonly');
-            document.getElementById('db-key-input').removeAttribute('readonly');
         };
     </script>
 </body>
