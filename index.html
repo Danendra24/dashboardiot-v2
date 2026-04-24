@@ -23,13 +23,14 @@
 
         .project-card.active { border-color: #6366f1; background: #1e293b; }
         .input-locked { background: #020617 !important; color: #10b981 !important; border-color: #1e293b !important; cursor: default; }
+
         .gauge-circle { transition: stroke-dashoffset 0.5s ease-out; transform: rotate(-90deg); transform-origin: 50% 50%; }
 
         .widget-monitor-card { position: absolute; cursor: move; user-select: none; overflow: hidden; min-width: 150px; min-height: 150px; }
         .resize-handle { position: absolute; right: 0; bottom: 0; width: 15px; height: 15px; cursor: nwse-resize; background: linear-gradient(135deg, transparent 50%, #6366f1 50%); border-radius: 0 0 1rem 0; }
         #section-monitor { position: relative; min-height: 80vh; }
 
-        /* UI State Management */
+        /* Auth Screen Style */
         #auth-gate { display: flex; position: fixed; inset: 0; z-index: 100; background: #0f172a; flex-direction: column; align-items: center; justify-content: center; }
         #main-dashboard { display: none; }
     </style>
@@ -44,11 +45,12 @@
                 <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5 mr-3">
                 Sign in with Google
             </button>
-            <p id="auth-msg" class="mt-4 text-[9px] text-slate-500 uppercase font-bold tracking-widest">Restricted Access</p>
+            <p id="auth-msg" class="mt-4 text-[9px] text-slate-500 uppercase font-bold tracking-widest">Multi-User IoT System</p>
         </div>
     </div>
 
-    <div id="main-dashboard" class="flex w-full h-full">
+    <div id="main-dashboard" class="w-full h-full flex">
+        
         <div id="modal-item" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4">
             <div class="bg-slate-900 border border-slate-700 w-full max-w-md p-8 rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
                 <h3 id="widget-modal-title" class="text-xl font-bold mb-6 text-indigo-400">Add/Edit Widget</h3>
@@ -110,18 +112,10 @@
                 </button>
             </div>
             <nav class="flex-1 px-4 space-y-2">
-                <button onclick="switchTab('editor')" id="btn-editor" class="sidebar-item active w-full flex items-center p-4 rounded-xl transition text-sm font-medium">
-                    <i class="fas fa-tools w-6"></i><span class="ml-3">Dashboard Editor</span>
-                </button>
-                <button onclick="switchTab('monitor')" id="btn-monitor" class="sidebar-item w-full flex items-center p-4 rounded-xl transition text-sm font-medium">
-                    <i class="fas fa-chart-line w-6"></i><span class="ml-3">Display & Control</span>
-                </button>
-                <button onclick="switchTab('connection')" id="btn-connection" class="sidebar-item w-full flex items-center p-4 rounded-xl transition border-t border-slate-800/50 mt-4 pt-6 text-sm font-medium">
-                    <i class="fas fa-network-wired w-6"></i><span class="ml-3">System Connection</span>
-                </button>
-                <button id="btn-logout" class="w-full flex items-center p-4 rounded-xl text-red-500 text-sm font-bold hover:bg-red-500/10 transition mt-auto mb-4">
-                    <i class="fas fa-sign-out-alt w-6"></i><span class="ml-3">Logout System</span>
-                </button>
+                <button onclick="switchTab('editor')" id="btn-editor" class="sidebar-item active w-full flex items-center p-4 rounded-xl transition text-sm font-medium"><i class="fas fa-tools w-6"></i><span class="ml-3">Dashboard Editor</span></button>
+                <button onclick="switchTab('monitor')" id="btn-monitor" class="sidebar-item w-full flex items-center p-4 rounded-xl transition text-sm font-medium"><i class="fas fa-chart-line w-6"></i><span class="ml-3">Display & Control</span></button>
+                <button onclick="switchTab('connection')" id="btn-connection" class="sidebar-item w-full flex items-center p-4 rounded-xl transition border-t border-slate-800/50 mt-4 pt-6 text-sm font-medium"><i class="fas fa-network-wired w-6"></i><span class="ml-3">System Connection</span></button>
+                <button id="btn-logout" class="w-full flex items-center p-4 rounded-xl text-red-500 text-sm font-bold hover:bg-red-500/10 transition mt-10"><i class="fas fa-sign-out-alt w-6"></i><span class="ml-3">Logout</span></button>
             </nav>
         </aside>
 
@@ -131,9 +125,7 @@
                     <h2 id="header-title" class="text-xs uppercase tracking-[0.2em] font-black text-slate-400">Dashboard Editor</h2>
                     <div id="active-project-name" class="text-[10px] text-indigo-500 font-bold uppercase mt-1">No Project Selected</div>
                 </div>
-                <button id="btn-create-widget" onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-full text-[11px] font-black transition uppercase tracking-widest opacity-50 cursor-not-allowed" disabled>
-                    <i class="fas fa-plus mr-2"></i> Create Widget
-                </button>
+                <button id="btn-create-widget" onclick="openModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-6 py-2.5 rounded-full text-[11px] font-black transition uppercase tracking-widest opacity-50 cursor-not-allowed" disabled><i class="fas fa-plus mr-2"></i> Create Widget</button>
             </header>
 
             <div class="p-10">
@@ -141,15 +133,10 @@
                 <div id="section-monitor" class="hidden"></div>
                 <div id="section-connection" class="hidden max-w-3xl mx-auto space-y-8">
                     <div class="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-                        <div class="bg-indigo-600 p-6 flex justify-between items-center text-center">
-                            <h3 class="text-lg font-bold text-white italic">ESP32 Credentials</h3>
-                            <button id="btn-unlock-config" onclick="unlockConfig()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-bold transition">
-                                <i class="fas fa-lock mr-2"></i>UNLOCK EDIT
-                            </button>
-                        </div>
+                        <div class="bg-indigo-600 p-6 flex justify-between items-center"><h3 class="text-lg font-bold text-white italic">ESP32 Credentials</h3><button id="btn-unlock-config" onclick="unlockConfig()" class="bg-white/10 hover:bg-white/20 text-white px-4 py-2 rounded-lg text-[10px] font-bold transition"><i class="fas fa-lock mr-2"></i>UNLOCK EDIT</button></div>
                         <div class="p-8 space-y-6">
-                            <input id="db-url-input" type="text" readonly value="https://loginsistemdashboard-default-rtdb.asia-southeast1.firebasedatabase.app" class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
-                            <input id="db-key-input" type="text" readonly value="AIzaSyC7Kowl_t-GyiJCNZI5xVclGgIEvp6i5zo" class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
+                            <input id="db-url-input" type="text" readonly class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
+                            <input id="db-key-input" type="text" readonly class="input-locked w-full bg-slate-950 p-3 rounded-xl border border-slate-800 text-xs font-mono">
                         </div>
                     </div>
                     <div class="bg-slate-900/50 border border-slate-800 rounded-2xl overflow-x-auto">
@@ -168,7 +155,6 @@
         import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // CONFIG DATABASE BARU (loginsistemdashboard)
         const firebaseConfig = {
             apiKey: "AIzaSyC7Kowl_t-GyiJCNZI5xVclGgIEvp6i5zo",
             authDomain: "loginsistemdashboard.firebaseapp.com",
@@ -184,40 +170,40 @@
         const authGate = document.getElementById('auth-gate');
         const mainDashboard = document.getElementById('main-dashboard');
 
-        // --- AUTH SYSTEM ---
+        // Global Variables
+        window.userId = null; 
+        window.projects = [];
+        window.activeProjectId = null;
+
+        // AUTH WATCHER
         onAuthStateChanged(auth, (user) => {
             if (user) {
+                window.userId = user.uid; // Unik untuk tiap email
                 authGate.style.display = "none";
                 mainDashboard.style.display = "flex";
-                initApp(); // Jalankan fungsi aplikasi utama
+                
+                // Isi info koneksi otomatis
+                document.getElementById('db-url-input').value = firebaseConfig.databaseURL;
+                document.getElementById('db-key-input').value = firebaseConfig.apiKey;
+                
+                initApp();
             } else {
+                window.userId = null;
                 authGate.style.display = "flex";
                 mainDashboard.style.display = "none";
             }
         });
 
         document.getElementById('btn-google-login').onclick = async () => {
-            document.getElementById('auth-loader').classList.remove('hidden');
-            document.getElementById('btn-google-login').classList.add('hidden');
-            try {
-                await signInWithPopup(auth, provider);
-            } catch (error) {
-                alert("Login Failed: " + error.message);
-                document.getElementById('auth-loader').classList.add('hidden');
-                document.getElementById('btn-google-login').classList.remove('hidden');
-            }
+            try { await signInWithPopup(auth, provider); } catch (e) { alert("Error: " + e.message); }
         };
 
-        document.getElementById('btn-logout').onclick = () => {
-            if(confirm("Logout dari sistem?")) signOut(auth);
-        };
+        document.getElementById('btn-logout').onclick = () => { if(confirm("Logout?")) signOut(auth); };
 
-        // --- CORE APPLICATION LOGIC (FUNGSI UTAMA LU) ---
-        window.projects = [];
-        window.activeProjectId = null;
-
+        // APP INITIALIZATION
         function initApp() {
-            onValue(ref(db, 'system_projects'), (snapshot) => {
+            // Path data per user: users/UID/...
+            onValue(ref(db, `users/${window.userId}/system_projects`), (snapshot) => {
                 const data = snapshot.val();
                 window.projects = data ? Object.values(data) : [];
                 renderProjects();
@@ -228,14 +214,10 @@
         window.saveProject = () => {
             const name = document.getElementById('project-name-input').value;
             const editId = document.getElementById('edit-project-id').value;
-            if(!name) return;
-            if(editId) {
-                update(ref(db, 'system_projects/' + editId), { name });
-            } else {
-                const id = Date.now();
-                const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-                set(ref(db, 'system_projects/' + id), { id, name, slug, widgets: {} });
-            }
+            if(!name || !window.userId) return;
+            const id = editId || Date.now();
+            const slug = name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+            update(ref(db, `users/${window.userId}/system_projects/${id}`), { id, name, slug });
             closeProjectModal();
         };
 
@@ -244,10 +226,8 @@
             const proj = window.projects.find(p => p.id == id);
             document.getElementById('active-project-name').innerText = "Active: " + proj.name;
             const btn = document.getElementById('btn-create-widget');
-            btn.disabled = false;
-            btn.classList.remove('opacity-50', 'cursor-not-allowed');
-            renderProjects();
-            renderAll();
+            btn.disabled = false; btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            renderProjects(); renderAll();
         };
 
         window.saveItem = () => {
@@ -269,28 +249,27 @@
                 slug: existingWidget ? existingWidget.slug : name.toLowerCase().replace(/[^a-z0-9]/g, "_") + "_" + Math.floor(1000 + Math.random()*9000)
             };
 
-            set(ref(db, `system_projects/${window.activeProjectId}/widgets/${id}`), widgetData);
-            if(!editId) set(ref(db, `data/${proj.slug}/${widgetData.slug}`), 0);
+            set(ref(db, `users/${window.userId}/system_projects/${window.activeProjectId}/widgets/${id}`), widgetData);
+            if(!editId) set(ref(db, `users/${window.userId}/data/${proj.slug}/${widgetData.slug}`), 0);
             closeModal();
         };
 
         window.deleteWidget = (id) => {
             if(confirm("Hapus widget ini?")) {
                 const proj = window.projects.find(p => p.id == window.activeProjectId);
-                remove(ref(db, `data/${proj.slug}/${proj.widgets[id].slug}`));
-                remove(ref(db, `system_projects/${window.activeProjectId}/widgets/${id}`));
+                remove(ref(db, `users/${window.userId}/data/${proj.slug}/${proj.widgets[id].slug}`));
+                remove(ref(db, `users/${window.userId}/system_projects/${window.activeProjectId}/widgets/${id}`));
             }
         };
 
-        // DRAG & RESIZE LOGIC
+        // DRAG & RESIZE (KODE ASLI LU)
         let activeEl = null, startX, startY, startW, startH, startLeft, startTop, mode = '';
 
         function initInteractions(el, widgetId) {
             const handle = el.querySelector('.resize-handle');
             el.onmousedown = (e) => {
                 if (e.target.closest('button') || e.target.closest('input')) return;
-                mode = 'drag'; activeEl = el;
-                startX = e.clientX; startY = e.clientY;
+                mode = 'drag'; activeEl = el; startX = e.clientX; startY = e.clientY;
                 startLeft = el.offsetLeft; startTop = el.offsetTop;
                 document.onmousemove = doInteraction; document.onmouseup = stopInteraction;
             };
@@ -316,7 +295,7 @@
         function stopInteraction() {
             if (activeEl) {
                 const id = activeEl.id.split('-')[1];
-                update(ref(db, `system_projects/${window.activeProjectId}/widgets/${id}/pos`), {
+                update(ref(db, `users/${window.userId}/system_projects/${window.activeProjectId}/widgets/${id}/pos`), {
                     x: parseInt(activeEl.style.left), y: parseInt(activeEl.style.top),
                     w: activeEl.offsetWidth, h: activeEl.offsetHeight
                 });
@@ -334,7 +313,8 @@
             if(!currentProj || !currentProj.widgets) return;
 
             Object.values(currentProj.widgets).forEach(w => {
-                const fullPath = `/data/${currentProj.slug}/${w.slug}`;
+                const fullPath = `users/${window.userId}/data/${currentProj.slug}/${w.slug}`;
+                
                 editorGrid.innerHTML += `
                     <div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-4 shadow-lg group">
                         <div class="flex justify-between items-start">
@@ -389,6 +369,7 @@
             return `<div class="text-[9px] text-slate-500 uppercase font-black mb-1 text-center">${w.type}</div><div class="text-xs font-bold text-slate-200 truncate text-center">${w.name}</div>${inner}`;
         }
 
+        // GLOBAL UI HELPERS
         window.renderProjects = () => {
             const container = document.getElementById('project-list'); container.innerHTML = '';
             window.projects.forEach(p => {
@@ -423,11 +404,11 @@
         };
         window.toggleSwitch = (slug, cur) => {
             const p = window.projects.find(proj => proj.id == window.activeProjectId);
-            set(ref(db, `data/${p.slug}/${slug}`), cur == 1 ? 0 : 1);
+            set(ref(db, `users/${window.userId}/data/${p.slug}/${slug}`), cur == 1 ? 0 : 1);
         };
         window.pushButton = (slug, v) => {
             const p = window.projects.find(proj => proj.id == window.activeProjectId);
-            set(ref(db, `data/${p.slug}/${slug}`), v);
+            set(ref(db, `users/${window.userId}/data/${p.slug}/${slug}`), v);
         };
         window.copyToClipboard = (text) => { navigator.clipboard.writeText(text); alert("Path Copied!"); };
         window.unlockConfig = () => {
