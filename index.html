@@ -33,18 +33,32 @@
         /* Auth Screen Style */
         #auth-gate { display: flex; position: fixed; inset: 0; z-index: 100; background: #0f172a; flex-direction: column; align-items: center; justify-content: center; }
         #main-dashboard { display: none; }
+        .auth-input { background: #1e293b; border: 1px solid #334155; color: white; padding: 12px; border-radius: 12px; width: 100%; outline: none; margin-bottom: 12px; font-size: 14px; }
+        .auth-input:focus { border-color: #6366f1; }
     </style>
 </head>
 <body class="flex h-screen text-slate-300">
 
     <div id="auth-gate">
-        <div class="text-center p-10 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl w-80">
+        <div class="text-center p-8 bg-slate-900 rounded-3xl border border-slate-800 shadow-2xl w-96">
             <h1 class="text-2xl font-black mb-6 italic tracking-tighter text-indigo-500">UNI-DASH</h1>
-            <div id="auth-loader" class="hidden border-4 border-slate-800 border-t-indigo-500 rounded-full w-10 h-10 animate-spin mx-auto mb-4"></div>
-            <button id="btn-google-login" class="w-full bg-white text-black px-6 py-3 rounded-xl font-bold hover:bg-slate-200 transition flex items-center justify-center">
-                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="w-5 h-5 mr-3">
-                Sign in with Google
-            </button>
+            
+            <div id="auth-form-container">
+                <div class="flex mb-6 bg-slate-950 p-1 rounded-xl">
+                    <button id="tab-login" onclick="toggleAuthMode('login')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition">LOGIN</button>
+                    <button id="tab-signup" onclick="toggleAuthMode('signup')" class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition">SIGN UP</button>
+                </div>
+
+                <div id="auth-loader" class="hidden border-4 border-slate-800 border-t-indigo-500 rounded-full w-8 h-8 animate-spin mx-auto mb-4"></div>
+                
+                <input type="email" id="auth-email" placeholder="Gmail Address" class="auth-input">
+                <input type="password" id="auth-password" placeholder="Password" class="auth-input">
+                
+                <button id="btn-auth-submit" onclick="handleAuthSubmit()" class="w-full bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:bg-indigo-500 transition flex items-center justify-center">
+                    <span id="auth-btn-text">Log In</span>
+                </button>
+            </div>
+
             <p id="auth-msg" class="mt-4 text-[9px] text-slate-500 uppercase font-bold tracking-widest">Multi-User IoT System</p>
         </div>
     </div>
@@ -152,7 +166,7 @@
 
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getAuth, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
         import { getDatabase, ref, set, onValue, remove, update } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
         const firebaseConfig = {
@@ -165,27 +179,53 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
         const db = getDatabase(app);
-        const provider = new GoogleAuthProvider();
 
         const authGate = document.getElementById('auth-gate');
         const mainDashboard = document.getElementById('main-dashboard');
-
-        // Global Variables
+        
         window.userId = null; 
         window.projects = [];
         window.activeProjectId = null;
+        let authMode = 'login';
 
-        // AUTH WATCHER
+        // --- AUTH LOGIC (NEW) ---
+        window.toggleAuthMode = (mode) => {
+            authMode = mode;
+            document.getElementById('tab-login').className = mode === 'login' ? 'flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition';
+            document.getElementById('tab-signup').className = mode === 'signup' ? 'flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition' : 'flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition';
+            document.getElementById('auth-btn-text').innerText = mode === 'login' ? 'Log In' : 'Sign Up';
+        };
+
+        window.handleAuthSubmit = async () => {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            const loader = document.getElementById('auth-loader');
+
+            if(!email || !password) return alert("Please fill all fields!");
+            
+            loader.classList.remove('hidden');
+            try {
+                if(authMode === 'signup') {
+                    await createUserWithEmailAndPassword(auth, email, password);
+                } else {
+                    await signInWithEmailAndPassword(auth, email, password);
+                }
+            } catch (e) {
+                let msg = "Error: " + e.message;
+                if(e.code === "auth/email-already-in-use") msg = "Email sudah terdaftar! Gunakan email lain.";
+                if(e.code === "auth/invalid-credential") msg = "Gmail tidak terdaftar atau Password salah!";
+                alert(msg);
+            }
+            loader.classList.add('hidden');
+        };
+
         onAuthStateChanged(auth, (user) => {
             if (user) {
-                window.userId = user.uid; // Unik untuk tiap email
+                window.userId = user.uid;
                 authGate.style.display = "none";
                 mainDashboard.style.display = "flex";
-                
-                // Isi info koneksi otomatis
                 document.getElementById('db-url-input').value = firebaseConfig.databaseURL;
                 document.getElementById('db-key-input').value = firebaseConfig.apiKey;
-                
                 initApp();
             } else {
                 window.userId = null;
@@ -194,15 +234,10 @@
             }
         });
 
-        document.getElementById('btn-google-login').onclick = async () => {
-            try { await signInWithPopup(auth, provider); } catch (e) { alert("Error: " + e.message); }
-        };
-
         document.getElementById('btn-logout').onclick = () => { if(confirm("Logout?")) signOut(auth); };
 
-        // APP INITIALIZATION
+        // --- DATABASE LOGIC (STAY THE SAME) ---
         function initApp() {
-            // Path data per user: users/UID/...
             onValue(ref(db, `users/${window.userId}/system_projects`), (snapshot) => {
                 const data = snapshot.val();
                 window.projects = data ? Object.values(data) : [];
@@ -262,7 +297,6 @@
             }
         };
 
-        // DRAG & RESIZE (KODE ASLI LU)
         let activeEl = null, startX, startY, startW, startH, startLeft, startTop, mode = '';
 
         function initInteractions(el, widgetId) {
@@ -314,22 +348,7 @@
 
             Object.values(currentProj.widgets).forEach(w => {
                 const fullPath = `users/${window.userId}/data/${currentProj.slug}/${w.slug}`;
-                
-                editorGrid.innerHTML += `
-                    <div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-4 shadow-lg group">
-                        <div class="flex justify-between items-start">
-                            <div><div class="text-[9px] text-indigo-400 font-bold uppercase mb-1">${w.type}</div><div class="font-bold text-white">${w.name}</div></div>
-                            <div class="flex space-x-2">
-                                <button onclick="openModal(${w.id})" class="text-slate-700 hover:text-emerald-400"><i class="fas fa-edit"></i></button>
-                                <button onclick="deleteWidget(${w.id})" class="text-slate-700 hover:text-red-500"><i class="fas fa-trash-alt"></i></button>
-                            </div>
-                        </div>
-                        <div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex justify-between items-center overflow-hidden">
-                             <code class="text-[10px] text-emerald-500 truncate mr-2">${fullPath}</code>
-                             <button onclick="copyToClipboard('${fullPath}')" class="text-slate-600 hover:text-white"><i class="far fa-copy text-xs"></i></button>
-                        </div>
-                    </div>`;
-
+                editorGrid.innerHTML += `<div class="bg-slate-800/30 border border-slate-700/50 p-6 rounded-2xl space-y-4 shadow-lg group"><div class="flex justify-between items-start"><div><div class="text-[9px] text-indigo-400 font-bold uppercase mb-1">${w.type}</div><div class="font-bold text-white">${w.name}</div></div><div class="flex space-x-2"><button onclick="openModal(${w.id})" class="text-slate-700 hover:text-emerald-400"><i class="fas fa-edit"></i></button><button onclick="deleteWidget(${w.id})" class="text-slate-700 hover:text-red-500"><i class="fas fa-trash-alt"></i></button></div></div><div class="bg-slate-950/80 rounded-xl p-3 border border-slate-800 flex justify-between items-center overflow-hidden"><code class="text-[10px] text-emerald-500 truncate mr-2">${fullPath}</code><button onclick="copyToClipboard('${fullPath}')" class="text-slate-600 hover:text-white"><i class="far fa-copy text-xs"></i></button></div></div>`;
                 const card = document.createElement('div');
                 card.id = `monitor-${w.id}`;
                 card.className = 'widget-monitor-card bg-slate-900 border border-slate-800 p-5 rounded-2xl shadow-2xl flex flex-col';
@@ -338,12 +357,10 @@
                 card.innerHTML = `<div class="content flex-1"></div><div class="resize-handle"></div>`;
                 monitorGrid.appendChild(card);
                 initInteractions(card, w.id);
-
                 onValue(ref(db, fullPath), (snapshot) => {
                     const val = snapshot.val() || 0;
                     card.querySelector('.content').innerHTML = createMonitorUI(w, val);
                 });
-
                 tableBody.innerHTML += `<tr class="border-t border-slate-800/50"><td class="px-6 py-4 font-bold text-center">${w.name}</td><td class="px-6 py-4 text-center"><code class="text-emerald-400">${fullPath}</code></td></tr>`;
             });
         };
@@ -353,9 +370,7 @@
             const textCol = w.colorText || '#ffffff';
             let inner = '';
             if(w.type === 'switch') {
-                inner = `<div onclick="toggleSwitch('${w.slug}', ${val})" class="mt-4 flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 cursor-pointer">
-                            <span class="text-[10px] font-bold" style="color:${accent}">${val == 1 ? 'ON' : 'OFF'}</span>
-                            <div class="w-10 h-5 rounded-full relative p-1" style="background-color:${val == 1 ? accent : '#334155'}"><div class="w-3 h-3 bg-white rounded-full transition-all transform ${val == 1 ? 'translate-x-5' : ''}"></div></div></div>`;
+                inner = `<div onclick="toggleSwitch('${w.slug}', ${val})" class="mt-4 flex justify-between items-center bg-slate-800/50 p-3 rounded-xl border border-slate-700/50 cursor-pointer"><span class="text-[10px] font-bold" style="color:${accent}">${val == 1 ? 'ON' : 'OFF'}</span><div class="w-10 h-5 rounded-full relative p-1" style="background-color:${val == 1 ? accent : '#334155'}"><div class="w-3 h-3 bg-white rounded-full transition-all transform ${val == 1 ? 'translate-x-5' : ''}"></div></div></div>`;
             } else if (w.type === 'numeric_gauge') {
                 const percent = Math.min(Math.max(((val - w.min) / (w.max - w.min)) * 100, 0), 100);
                 inner = `<div class="mt-2 flex flex-col items-center justify-center relative h-full"><svg viewBox="0 0 100 100" class="w-full h-full max-h-[120px]"><circle cx="50" cy="50" r="40" stroke="#1e293b" stroke-width="8" fill="transparent" /><circle cx="50" cy="50" r="40" stroke="${accent}" stroke-width="8" fill="transparent" stroke-dasharray="251.2" stroke-dashoffset="${251.2 - (251.2 * percent) / 100}" class="gauge-circle" stroke-linecap="round" /></svg><div class="absolute inset-0 flex flex-col items-center justify-center"><span class="text-2xl font-black" style="color:${textCol}">${val}</span><span class="text-[8px] font-bold opacity-50 uppercase">${percent.toFixed(0)}%</span></div></div>`;
@@ -369,7 +384,6 @@
             return `<div class="text-[9px] text-slate-500 uppercase font-black mb-1 text-center">${w.type}</div><div class="text-xs font-bold text-slate-200 truncate text-center">${w.name}</div>${inner}`;
         }
 
-        // GLOBAL UI HELPERS
         window.renderProjects = () => {
             const container = document.getElementById('project-list'); container.innerHTML = '';
             window.projects.forEach(p => {
